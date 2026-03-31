@@ -1,0 +1,41 @@
+{
+  "version": "2.1",
+  "updated": "2026-01-01",
+  "canSpam": {
+    "requirePhysicalAddress": true,
+    "requireUnsubscribeMechanism": true,
+    "requireSenderIdentity": true,
+    "prohibitDeceptiveSubjectLines": true,
+    "prohibitDeceptiveHeaders": true
+  },
+  "gdpr": {
+    "requireConsentLanguage": true,
+    "requireDataProcessingDisclosure": true,
+    "requireUnsubscribeRight": true,
+    "applicableRegions": ["EU", "UK", "EEA"]
+  },
+  "deliverability": {
+    "maxExclamationPoints": 2,
+    "maxLinksPerEmail": 7,
+    "maxSubjectLineEmoji": 1,
+    "maxCtaWords": 5,
+    "minTextToImageRatio": 0.6
+  },
+  "spamTriggers": {
+    "subjectLine": [
+      "FREE", "WINNER", "GUARANTEED", "ACT NOW", "LIMITED TIME",
+      "URGENT", "CLICK HERE", "MAKE MONEY", "EARN MONEY", "CASH",
+      "PRIZE", "YOU HAVE BEEN SELECTED", "CONGRATULATIONS",
+      "NO OBLIGATION", "RISK FREE", "SPECIAL PROMOTION",
+      "ORDER NOW", "BUY NOW", "SUBSCRIBE NOW"
+    ],
+    "body": [
+      "CLICK HERE", "VISIT OUR WEBSITE", "THIS IS NOT SPAM",
+      "YOU HAVE BEEN CHOSEN", "DEAR FRIEND"
+    ]
+  },
+  "capsRules": {
+    "allowAcronymsUpToChars": 4,
+    "prohibitFullWordsCaps": true
+  }
+}

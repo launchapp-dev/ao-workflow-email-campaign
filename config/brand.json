@@ -1,0 +1,44 @@
+{
+  "brand_name": "AO",
+  "colors": {
+    "primary": "#0F172A",
+    "primary_text": "#FFFFFF",
+    "secondary": "#1E293B",
+    "secondary_text": "#F8FAFC",
+    "accent": "#6366F1",
+    "accent_text": "#FFFFFF",
+    "body_background": "#F8FAFC",
+    "body_text": "#1E293B",
+    "muted_text": "#64748B",
+    "border": "#E2E8F0",
+    "dark_mode_background": "#0F172A",
+    "dark_mode_text": "#F1F5F9"
+  },
+  "typography": {
+    "primary_font": "Inter",
+    "fallback_fonts": "Arial, Helvetica, sans-serif",
+    "heading_size_px": 28,
+    "subheading_size_px": 18,
+    "body_size_px": 16,
+    "small_size_px": 14,
+    "line_height": 1.6
+  },
+  "logo": {
+    "url": "https://ao.dev/static/logo-email.png",
+    "width": 120,
+    "height": 32,
+    "alt": "AO Workflows"
+  },
+  "footer": {
+    "company_name": "LaunchApp Inc.",
+    "physical_address": "548 Market St, Suite 95000, San Francisco, CA 94104",
+    "website": "https://ao.dev",
+    "social_links": [
+      { "platform": "Twitter", "url": "https://twitter.com/ao_dev" },
+      { "platform": "GitHub", "url": "https://github.com/launchapp-dev" },
+      { "platform": "LinkedIn", "url": "https://linkedin.com/company/launchapp" }
+    ],
+    "unsubscribe_text": "You're receiving this because you signed up at ao.dev.",
+    "manage_preferences_text": "Manage preferences"
+  }
+}

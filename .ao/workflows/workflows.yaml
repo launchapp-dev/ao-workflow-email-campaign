@@ -1,0 +1,59 @@
+default_workflow_ref: email-campaign-pipeline
+
+workflows:
+  - id: email-campaign-pipeline
+    name: "Email Campaign Production Pipeline"
+    description: >
+      End-to-end email campaign production: audience segmentation, personalized copy per
+      segment and variant, compliance validation with rework loop, responsive HTML template
+      generation, timezone-optimized send scheduling, A/B test configuration, and final
+      campaign package assembly. Ends with a manual preflight gate before launch.
+    phases:
+      - plan-campaign:
+          on_verdict:
+            insufficient-data:
+              target: plan-campaign
+          max_rework_attempts: 0
+      - write-copy
+      - check-compliance:
+          on_verdict:
+            fix-required:
+              target: write-copy
+            blocked:
+              target: plan-campaign
+          max_rework_attempts: 3
+      - build-templates
+      - compute-schedule
+      - finalize-campaign
+      - manual-preflight-review
+    post_success:
+      merge:
+        strategy: squash
+        target_branch: main
+        create_pr: true
+        auto_merge: false
+        cleanup_worktree: true
+
+  - id: compliance-only
+    name: "Compliance Check Only"
+    description: >
+      Run only the compliance check against existing copy variants in output/copy/.
+      Useful for re-validating after manual edits to copy files. If compliance fails
+      (fix-required), review data/compliance-feedback.json and make manual edits, then
+      re-run this workflow. Blocked verdict loops back to retry after config fixes.
+    phases:
+      - check-compliance:
+          on_verdict:
+            blocked:
+              target: check-compliance
+          max_rework_attempts: 2
+      - finalize-campaign
+
+  - id: reschedule
+    name: "Reschedule Existing Campaign"
+    description: >
+      Recompute send schedule and A/B test config for an existing campaign
+      (e.g., after subscriber list update or date change).
+    phases:
+      - compute-schedule
+      - finalize-campaign

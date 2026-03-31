@@ -1,0 +1,474 @@
+phases:
+  plan-campaign:
+    mode: agent
+    agent: campaign-strategist
+    directive: |
+      Read the campaign brief from config/brief.json and subscriber data from data/subscribers.csv.
+
+      Use sequential-thinking MCP to reason through:
+      1. Audience analysis: for each segment listed in the brief, compute engagement metrics
+         from subscriber data (avg open rate, click rate, days since last open, timezone spread).
+      2. Messaging framework: for each segment, define:
+         - Primary pain point this campaign addresses
+         - Key value proposition most relevant to their journey stage
+         - Tone and vocabulary appropriate for this segment
+         - Elements to avoid (e.g., don't lead with price for trial-expired; don't over-explain for active-users)
+      3. A/B test matrix: for each segment, define 2 variants with:
+         - Which element varies (subject_line or cta_text per brief config)
+         - Hypothesis for why variant B might outperform A
+         - Expected lift (% improvement in winner metric)
+      4. Risk flags: note any audience segments with low sample size or poor historical engagement
+         that should be treated carefully.
+
+      Write output to data/campaign-strategy.json with this structure:
+      {
+        "campaign": "<campaign_name from brief>",
+        "generated_at": "<ISO timestamp>",
+        "segments": [
+          {
+            "id": "active-users",
+            "subscriber_count": <from CSV>,
+            "avg_open_rate": <computed>,
+            "avg_click_rate": <computed>,
+            "timezone_distribution": {"US/Eastern": 0.45, ...},
+            "journey_stage": "retention",
+            "primary_pain_point": "...",
+            "key_value_prop": "...",
+            "tone": "...",
+            "avoid": ["..."],
+            "variants": [
+              {"id": "A", "test_element": "subject_line", "hypothesis": "..."},
+              {"id": "B", "test_element": "subject_line", "hypothesis": "..."}
+            ]
+          }
+        ],
+        "ab_test_config": {
+          "test_percentage": <from brief>,
+          "winner_metric": "<from brief>",
+          "test_duration_hours": <from brief>,
+          "minimum_sample_size_per_variant": <computed>
+        },
+        "risk_flags": ["..."]
+      }
+
+      Decision contract:
+      - If config/brief.json is missing or has no segments defined: verdict = "insufficient-data"
+      - If data/subscribers.csv is missing or has fewer than 100 rows: verdict = "insufficient-data"
+      - Otherwise: verdict = "ready"
+    capabilities:
+      mutates_state: true
+      writes_files: true
+    decision_contract:
+      required_fields: [verdict, reasoning]
+
+  write-copy:
+    mode: agent
+    agent: copywriter
+    directive: |
+      Read the following files:
+      - data/campaign-strategy.json (segments, messaging framework, variant definitions)
+      - config/brief.json (product info, brand voice, sender info)
+      - templates/copy-guidelines.md (platform-specific copy rules)
+      - data/compliance-feedback.json IF IT EXISTS (rework mode: per-variant revision instructions)
+
+      For EACH segment × variant combination in campaign-strategy.json, generate complete email copy.
+      Segments: active-users, trial-expired, newsletter-only, enterprise-leads
+      Variants per segment: A and B (different subject line or CTA per test matrix)
+
+      Each variant JSON file (output/copy/segment-<id>-variant-<letter>.json) must contain:
+      {
+        "segment": "<segment_id>",
+        "variant": "<A|B>",
+        "subject_line": "<max 60 chars>",
+        "preheader": "<max 100 chars>",
+        "hero": {
+          "headline": "...",
+          "subheadline": "..."
+        },
+        "body": {
+          "hook": "...",
+          "value_section": "...",
+          "proof_section": "..."
+        },
+        "cta": {
+          "button_text": "...",
+          "fallback_link_text": "..."
+        },
+        "plain_text": "<full plain text version>",
+        "word_count": <integer>,
+        "personalization_tokens_used": ["{{first_name}}", "..."]
+      }
+
+      If data/compliance-feedback.json exists (rework mode):
+      - Only revise variants listed in the feedback file
+      - For each flagged variant, fix ONLY the specific issues noted
+      - Do not touch approved variants — copy them unchanged from output/copy/
+
+      After writing all variant files, write output/copy/manifest.json:
+      {
+        "campaign": "<name>",
+        "generated_at": "<ISO timestamp>",
+        "variants": [
+          {
+            "segment": "...",
+            "variant": "A",
+            "file": "segment-active-users-variant-a.json",
+            "subject_line": "...",
+            "subject_chars": <int>,
+            "preheader": "...",
+            "body_word_count": <int>,
+            "cta_text": "...",
+            "compliance_status": "pending"
+          }
+        ],
+        "total_variants": <int>,
+        "segments_covered": <int>
+      }
+    capabilities:
+      mutates_state: true
+      writes_files: true
+
+  check-compliance:
+    mode: agent
+    agent: compliance-checker
+    directive: |
+      Read all files in output/copy/ directory.
+      Read data/campaign-strategy.json for tone guidelines.
+      Read config/compliance-rules.json for the specific rules and spam trigger word list.
+      Read config/brief.json for sender info (physical address, from_email).
+
+      For each variant file in output/copy/ (excluding manifest.json), validate:
+
+      CAN-SPAM checks:
+      1. Physical mailing address from config/brief.json sender.physical_address must appear in
+         plain_text field (check that it or a reference to the footer is present)
+      2. Subject line must not contain deceptive or misleading content
+      3. No false urgency manufactured by lying about deadlines
+      4. Sender identity: from_name and from_email from brief must be consistent with content
+
+      GDPR checks:
+      5. Consent language: body must not imply the recipient did not consent to receive emails
+      6. Plain text must reference the ability to unsubscribe (look for "unsubscribe" keyword)
+
+      Deliverability checks:
+      7. Subject line: no spam trigger words from compliance-rules.json spamTriggers list
+      8. Subject line: no ALL CAPS words (except acronyms up to 4 chars)
+      9. Subject line: max 1 emoji
+      10. Plain text: unsubscribe keyword present
+      11. Body: not more than 2 exclamation points across all sections
+      12. CTA button_text: not more than 5 words
+
+      Brand alignment:
+      13. Tone matches brand_voice.tone from brief (check for avoid[] words from brief)
+      14. No buzzwords from the avoid list appear in subject or body
+
+      Write data/compliance-report.json:
+      {
+        "checked_at": "<ISO timestamp>",
+        "overall_status": "compliant|fix-required|blocked",
+        "variants": [
+          {
+            "segment": "...",
+            "variant": "A",
+            "file": "...",
+            "status": "pass|fail",
+            "issues": [
+              {
+                "rule": "CAN-SPAM-address",
+                "severity": "error|warning",
+                "description": "Physical address not found in plain_text",
+                "location": "plain_text"
+              }
+            ]
+          }
+        ],
+        "summary": {
+          "total_variants": <int>,
+          "passed": <int>,
+          "failed": <int>,
+          "error_count": <int>,
+          "warning_count": <int>
+        }
+      }
+
+      If any variants failed:
+      Write data/compliance-feedback.json with specific revision instructions per variant:
+      {
+        "revision_required": true,
+        "variants_to_revise": [
+          {
+            "segment": "...",
+            "variant": "A",
+            "file": "...",
+            "fixes_required": [
+              {
+                "field": "subject_line",
+                "issue": "Contains spam trigger word 'FREE'",
+                "instruction": "Replace 'FREE' with specific offer language like '14-day trial'"
+              }
+            ]
+          }
+        ]
+      }
+
+      Decision verdict:
+      - "compliant" if all variants pass all checks
+      - "fix-required" if any variant has fixable issues (bad subject line word, missing unsubscribe ref, etc.)
+      - "blocked" if structural compliance issue exists that requires data we don't have
+        (e.g., physical_address missing from config entirely, from_email domain mismatch)
+    capabilities:
+      mutates_state: true
+      writes_files: true
+    decision_contract:
+      required_fields: [verdict, reasoning]
+
+  build-templates:
+    mode: agent
+    agent: template-builder
+    directive: |
+      Read config/brand.json for brand colors, fonts, logo URL, and footer content.
+      Read templates/base-email.html as the structural skeleton to build from.
+      Read each variant file in output/copy/ (use manifest.json as the index).
+
+      For each variant in output/copy/manifest.json, generate a complete HTML email template.
+      Save as output/templates/segment-<segment_id>-variant-<letter>.html
+
+      HTML requirements:
+      1. DOCTYPE: <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN">
+      2. Outer wrapper: 100% width table for email client compatibility
+      3. Content table: max-width 600px, centered
+      4. Font stack: brand font from config + web-safe fallbacks (Arial, sans-serif)
+      5. Header: logo image with alt text, brand primary color background
+      6. Hero section: headline + subheadline from copy JSON, brand secondary color or white background
+      7. Body sections: hook, value, proof — each in a separate table row for clear visual hierarchy
+      8. CTA button: brand accent color background, white text, 44px min height (touch target)
+         Use bulletproof button: VML for Outlook + CSS for others
+      9. Footer: unsubscribe link ({{unsubscribe_url}}), physical address from brand.json,
+         view in browser link ({{view_in_browser_url}}), social links if configured in brand.json
+      10. Dark mode: @media (prefers-color-scheme: dark) block in <style> with inverted colors for
+          backgrounds and light text on dark surfaces
+      11. Mobile: @media (max-width: 600px) block making all columns full-width
+      12. Tracking: <img src="{{tracking_pixel_url}}" width="1" height="1" border="0" alt="">
+          immediately before </body>
+      13. All href links: append ?utm_source=email&utm_medium=email&utm_campaign={{campaign_id}}&utm_content=<segment>-<variant>
+
+      After generating all templates, create output/templates/preview-index.html:
+      A simple HTML page with a responsive grid showing all variants side-by-side.
+      Each preview shows: segment name, variant letter, subject line, and an iframe of the template
+      (scaled to 50%). Add a navigation sidebar listing all variants with jump links.
+    capabilities:
+      mutates_state: true
+      writes_files: true
+
+  compute-schedule:
+    mode: command
+    command:
+      program: python3
+      args: ["-c", "
+import csv, json, sys
+from collections import defaultdict
+from datetime import datetime, timezone
+
+# Load subscribers
+subscribers = []
+with open('data/subscribers.csv', 'r') as f:
+    reader = csv.DictReader(f)
+    for row in reader:
+        subscribers.append(row)
+
+# Load strategy
+with open('data/campaign-strategy.json') as f:
+    strategy = json.load(f)
+
+# Load brief
+with open('config/brief.json') as f:
+    brief = json.load(f)
+
+# Timezone to UTC offset mapping
+TZ_OFFSETS = {
+    'US/Eastern': -5, 'US/Central': -6, 'US/Mountain': -7, 'US/Pacific': -8,
+    'Europe/London': 0, 'Europe/Berlin': 1, 'Europe/Paris': 1, 'Europe/Amsterdam': 1,
+    'Asia/Tokyo': 9, 'Asia/Seoul': 9, 'Asia/Singapore': 8, 'Asia/Shanghai': 8,
+    'Australia/Sydney': 11, 'UTC': 0
+}
+
+# Optimal local send hour (9 AM local)
+OPTIMAL_LOCAL_HOUR = 9
+
+# Count subscribers per timezone
+tz_counts = defaultdict(int)
+for sub in subscribers:
+    tz = sub.get('timezone', 'UTC')
+    tz_counts[tz] += 1
+
+# Build send schedule
+campaign_date = brief.get('product', {}).get('launch_date', '2026-04-15')
+batches = []
+for tz, count in sorted(tz_counts.items(), key=lambda x: -x[1]):
+    offset = TZ_OFFSETS.get(tz, 0)
+    # 9 AM local = (9 - offset) UTC
+    utc_hour = (OPTIMAL_LOCAL_HOUR - offset) % 24
+    send_time = f'{campaign_date}T{utc_hour:02d}:00:00Z'
+    batches.append({
+        'timezone': tz,
+        'subscriber_count': count,
+        'send_time_utc': send_time,
+        'local_send_time': f'{campaign_date} 09:00 {tz}'
+    })
+
+schedule = {
+    'generated_at': datetime.now(timezone.utc).isoformat(),
+    'campaign_date': campaign_date,
+    'total_subscribers': len(subscribers),
+    'batches': batches,
+    'notes': [
+        'Sends staggered by timezone to maximize local morning delivery',
+        'Batch size recommendation: max 5000/hour for deliverability',
+        'Avoid sending to batches of fewer than 50 subscribers (merge into UTC)'
+    ]
+}
+
+# Build A/B test config
+ab_cfg = brief.get('ab_test', {})
+test_pct = ab_cfg.get('test_percentage', 15) / 100
+segments = strategy.get('segments', [])
+
+ab_config = {
+    'generated_at': datetime.now(timezone.utc).isoformat(),
+    'test_percentage': ab_cfg.get('test_percentage', 15),
+    'winner_metric': ab_cfg.get('winner_metric', 'click_rate'),
+    'test_duration_hours': ab_cfg.get('test_duration_hours', 6),
+    'confidence_threshold': 0.95,
+    'holdout_percentage': 10,
+    'segments': []
+}
+
+for seg in segments:
+    count = seg.get('subscriber_count', 0)
+    test_group = int(count * test_pct)
+    holdout = int(count * 0.10)
+    winner_group = count - test_group - holdout
+    ab_config['segments'].append({
+        'segment_id': seg['id'],
+        'total_subscribers': count,
+        'test_group_size': test_group,
+        'holdout_size': holdout,
+        'winner_send_size': winner_group,
+        'variant_a_size': test_group // 2,
+        'variant_b_size': test_group // 2,
+        'winner_criteria': {
+            'metric': ab_cfg.get('winner_metric', 'click_rate'),
+            'min_confidence': 0.95,
+            'test_duration_hours': ab_cfg.get('test_duration_hours', 6)
+        }
+    })
+
+with open('output/schedule.json', 'w') as f:
+    json.dump(schedule, f, indent=2)
+
+with open('output/ab-test-config.json', 'w') as f:
+    json.dump(ab_config, f, indent=2)
+
+print('Schedule and A/B config written successfully')
+print(f'Total subscribers: {len(subscribers)}')
+print(f'Timezone batches: {len(batches)}')
+print(f'Segments configured: {len(ab_config[\"segments\"])}')
+"]
+      cwd_mode: task_root
+      timeout_secs: 60
+
+  finalize-campaign:
+    mode: agent
+    agent: campaign-analyst
+    directive: |
+      Read all files in output/ and data/ directories to assemble the final campaign package.
+      Required inputs:
+      - config/brief.json
+      - data/campaign-strategy.json
+      - output/copy/manifest.json
+      - data/compliance-report.json
+      - output/schedule.json
+      - output/ab-test-config.json
+      - List of files in output/templates/
+
+      Generate output/campaign-summary.md with this structure:
+
+      # Campaign Summary: <campaign_name>
+
+      **Generated:** <date> | **Launch Date:** <product.launch_date> | **Status:** Ready to Send
+
+      ## Audience
+      Table: Segment | Subscribers | Avg Open Rate | Avg Click Rate | Engagement Tier
+
+      ## Copy Variants (<N> total)
+      Table: Segment | Variant | Subject Line | Preheader | CTA
+
+      ## Compliance: All Clear / Issues Detected
+      - CAN-SPAM status
+      - GDPR status
+      - Deliverability score summary
+
+      ## Send Schedule
+      Table: Timezone Batch | Subscribers | Send Time (UTC) | Local Time
+      ASCII bar chart of subscriber distribution by timezone
+
+      ## A/B Test Plan
+      Table: Segment | Test Group | Variant A Size | Variant B Size | Holdout | Winner Send
+      - Winner metric and confidence threshold
+      - Auto-send timing
+
+      ## Estimated Performance
+      Calculate based on avg open/click rates from strategy + industry benchmarks:
+      - Expected opens per segment
+      - Expected clicks per segment
+      - Expected conversions (use 0.02 conversion rate on clicks as baseline)
+
+      ## Pre-Flight Checklist
+      - [ ] Verify sender domain SPF/DKIM records for <from_email domain>
+      - [ ] Test email rendering in Litmus or Email on Acid (link to preview-index.html)
+      - [ ] Confirm unsubscribe link resolves correctly
+      - [ ] Review plain-text fallback version for each variant
+      - [ ] Validate all UTM tracking parameters in templates
+      - [ ] Load test sending infrastructure for <total_subscribers> subscribers
+      - [ ] Confirm list suppressions (unsubscribed, bounced) applied
+      - [ ] Schedule A/B winner auto-send trigger in ESP
+
+      Also generate output/campaign-package.json:
+      {
+        "campaign": "<name>",
+        "status": "ready",
+        "generated_at": "<ISO>",
+        "launch_date": "<date>",
+        "total_subscribers": <int>,
+        "total_variants": <int>,
+        "segments": <int>,
+        "compliance": "all-clear",
+        "artifacts": {
+          "copy_variants": ["output/copy/segment-*.json"],
+          "html_templates": ["output/templates/segment-*.html"],
+          "preview": "output/templates/preview-index.html",
+          "schedule": "output/schedule.json",
+          "ab_config": "output/ab-test-config.json",
+          "summary": "output/campaign-summary.md"
+        }
+      }
+    capabilities:
+      mutates_state: true
+      writes_files: true
+
+  manual-preflight-review:
+    mode: manual
+    directive: |
+      Human review required before campaign goes live.
+
+      Please verify the following:
+      1. Open output/templates/preview-index.html in a browser and check all 8 templates
+      2. Send test emails to your seed list (test@yourdomain.com) using your ESP
+      3. Run templates through Litmus or Email on Acid for cross-client preview
+      4. Verify the unsubscribe link works end-to-end
+      5. Confirm the A/B test is configured in your ESP matching output/ab-test-config.json
+      6. Schedule the sends matching output/schedule.json timezone batches
+      7. Review output/campaign-summary.md pre-flight checklist
+
+      Approve only when all items are verified. Reject to restart from plan-campaign if
+      the brief or audience data needs updating.

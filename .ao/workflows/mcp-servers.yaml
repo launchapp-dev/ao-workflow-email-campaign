@@ -1,0 +1,15 @@
+mcp_servers:
+  filesystem:
+    command: npx
+    args:
+      - "-y"
+      - "@modelcontextprotocol/server-filesystem"
+      - "."
+    description: "Read/write files within this email campaign project directory"
+
+  sequential-thinking:
+    command: npx
+    args:
+      - "-y"
+      - "@modelcontextprotocol/server-sequential-thinking"
+    description: "Structured reasoning for audience segmentation and messaging strategy"

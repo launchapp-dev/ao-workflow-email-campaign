@@ -1,0 +1,44 @@
+{
+  "_comment": "Sample campaign brief — copy to config/brief.json to run the pipeline",
+  "campaign_name": "Summer Growth Campaign 2026",
+  "campaign_type": "feature-announcement",
+  "product": {
+    "name": "AO Workflows",
+    "tagline": "Ship faster with AI-powered automation",
+    "key_features": [
+      "New: GitHub Actions integration",
+      "New: Slack notifications on workflow events",
+      "Improved: 3x faster agent execution",
+      "New: Team collaboration features"
+    ],
+    "launch_date": "2026-07-01"
+  },
+  "goals": {
+    "primary": "Drive feature adoption among existing users",
+    "secondary": "Re-engage churned trial users",
+    "target_open_rate": 0.30,
+    "target_click_rate": 0.06
+  },
+  "audience": {
+    "total_subscribers": 18000,
+    "segments": ["active-users", "trial-expired", "newsletter-only", "enterprise-leads"],
+    "exclusions": ["unsubscribed", "bounced"]
+  },
+  "brand_voice": {
+    "tone": "technical, concise, results-focused",
+    "avoid": ["hype", "jargon", "ALL CAPS", "GUARANTEED"],
+    "cta_style": "action-oriented with specific outcome"
+  },
+  "sender": {
+    "from_name": "AO Team",
+    "from_email": "team@ao.dev",
+    "reply_to": "hello@ao.dev",
+    "physical_address": "548 Market St, Suite 95000, San Francisco, CA 94104"
+  },
+  "ab_test": {
+    "elements_to_test": ["subject_line", "cta_text"],
+    "test_percentage": 20,
+    "winner_metric": "click_rate",
+    "test_duration_hours": 4
+  }
+}

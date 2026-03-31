@@ -1,0 +1,9 @@
+schedules:
+  - id: daily-campaign-check
+    cron: "0 8 * * 1-5"
+    workflow_ref: email-campaign-pipeline
+    enabled: false
+    description: >
+      Weekday morning check for new campaign briefs. Enable this if you place new brief.json
+      files in config/ and want campaigns to auto-process overnight. Disabled by default —
+      enable once you have a brief intake process feeding config/brief.json.

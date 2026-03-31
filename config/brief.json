@@ -1,0 +1,43 @@
+{
+  "campaign_name": "Spring Product Launch 2026",
+  "campaign_type": "product-launch",
+  "product": {
+    "name": "AO Workflows",
+    "tagline": "Automate any business process with AI agents",
+    "key_features": [
+      "Multi-agent orchestration",
+      "Visual workflow builder",
+      "50+ pre-built templates",
+      "Runs on autopilot — no human intervention needed"
+    ],
+    "launch_date": "2026-04-15"
+  },
+  "goals": {
+    "primary": "Drive free trial signups",
+    "secondary": "Educate on use cases",
+    "target_open_rate": 0.25,
+    "target_click_rate": 0.05
+  },
+  "audience": {
+    "total_subscribers": 15000,
+    "segments": ["active-users", "trial-expired", "newsletter-only", "enterprise-leads"],
+    "exclusions": ["unsubscribed", "bounced"]
+  },
+  "brand_voice": {
+    "tone": "confident, clear, developer-friendly",
+    "avoid": ["hype", "buzzwords", "ALL CAPS subjects", "GUARANTEED", "FREE", "WINNER"],
+    "cta_style": "direct and specific"
+  },
+  "sender": {
+    "from_name": "AO Team",
+    "from_email": "team@ao.dev",
+    "reply_to": "hello@ao.dev",
+    "physical_address": "548 Market St, Suite 95000, San Francisco, CA 94104"
+  },
+  "ab_test": {
+    "elements_to_test": ["subject_line", "cta_text"],
+    "test_percentage": 15,
+    "winner_metric": "click_rate",
+    "test_duration_hours": 6
+  }
+}
